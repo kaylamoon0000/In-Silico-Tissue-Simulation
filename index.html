@@ -107,12 +107,12 @@ let cells=[];
 let running=true;
 
 /* =========================
-ADD CELLS – FIXED PLACEMENT
+ADD CELLS – FIXED PLACEMENT WITH SCROLL CORRECTION
 ========================= */
 canvas.onclick = e => {
   const rect = canvas.getBoundingClientRect();
-  const xMouse = e.clientX - rect.left;
-  const yMouse = e.clientY - rect.top;
+  const xMouse = e.pageX - rect.left - window.scrollX;
+  const yMouse = e.pageY - rect.top - window.scrollY;
   const x = Math.floor(xMouse / S);
   const y = Math.floor(yMouse / S);
 
@@ -277,4 +277,3 @@ loop();
 </script>
 </body>
 </html>
-
