@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Biomolecular Tissue Simulator</title>
+
+<style>
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: Arial;
+}
+
+#container {
+  display: flex;
+}
+
+canvas {
+  border: 1px solid #444;
+}
+
+#panel {
+  width: 260px;
+  padding: 10px;
+  background: #1b1b1b;
+}
+
+select {
+  width: 100%;
+  height: 200px;
+}
+
+#desc {
+  font-size: 12px;
+  margin-top: 10px;
+  min-height: 40px;
+}
+</style>
+</head>
+
+<body>
+<div id="container">
+  <canvas id="canvas" width="700" height="700"></canvas>
+
+  <div id="panel">
+    <h3>Cell Types</h3>
+    <select id="cellType" multiple></select>
+    <div id="desc">Hover to see description</div>
+
+    <h3>Simulation</h3>
+    <label>Diffusion
+      <input id="diff" type="range" min="0" max="0.3" step="0.01" value="0.15">
+    </label>
+    <br>
+    <label>Decay
+      <input id="decay" type="range" min="0" max="0.02" step="0.001" value="0.005">
+    </label>
+  </div>
+</div>
+
+<script>
+/* =========================
+   CELL DEFINITIONS (20 TYPES)
+========================= */
+const CELL_TYPES = {
+ neuron: {color:"#FFD700", sec:0.05, burst:true, desc:"Neuron – burst neurotransmitter release"},
+ astrocyte: {color:"#FF66CC", sec:0.02, burst:false, desc:"Astrocyte – regulates synaptic chemistry"},
+ microglia: {color:"#FF8C00", sec:0.08, burst:true, desc:"Microglia – immune surveillance"},
+ oligodendrocyte: {color:"#99CCFF", sec:0.005, burst:false, desc:"Oligodendrocyte – myelination support"},
+ neural_stem: {color:"#00FFFF", sec:0.03, burst:false, desc:"Neural stem cell – neurogenesis"},
+ endothelial: {color:"#00CC66", sec:0.015, burst:false, desc:"Endothelial – blood brain barrier"},
+ pericyte: {color:"#66FF99", sec:0.02, burst:false, desc:"Pericyte – vascular stability"},
+ t_cell: {color:"#FF3333", sec:0.07, burst:true, desc:"T cell – cytokine burst"},
+ macrophage: {color:"#CC5500", sec:0.09, burst:true, desc:"Macrophage – strong inflammation"},
+ fibroblast: {color:"#CCCCCC", sec:0.01, burst:false, desc:"Fibroblast – ECM secretion"},
+ mesenchymal_stem: {color:"#33FFFF", sec:0.04, burst:false, desc:"Mesenchymal stem – paracrine healing"},
+ epithelial: {color:"#9999FF", sec:0.008, burst:false, desc:"Epithelial barrier cell"},
+ glioblastoma: {color:"#990000", sec:0.1, burst:false, desc:"Glioblastoma tumor cell"},
+ cancer_stem: {color:"#660000", sec:0.12, burst:false, desc:"Cancer stem cell"},
+ dendritic: {color:"#FFAA00", sec:0.06, burst:true, desc:"Dendritic antigen-presenting cell"},
+ b_cell: {color:"#FF6666", sec:0.05, burst:true, desc:"B cell – antibody production"},
+ ipsc: {color:"#66FFFF", sec:0.025, burst:false, desc:"Induced pluripotent stem cell"},
+ organoid: {color:"#33CCFF", sec:0.03, burst:false, desc:"Organoid progenitor"},
+ chondrocyte: {color:"#66CCFF", sec:0.01, burst:false, desc:"Chondrocyte – cartilage cell"},
+ cardiomyocyte: {color:"#FF99CC", sec:0.02, burst:true, desc:"Cardiomyocyte – stress signaling"}
+};
+
+/* =========================
+   POPULATE MENU
+========================= */
+const select = document.getElementById("cellType");
+const desc = document.getElementById("desc");
+
+for (let key in CELL_TYPES) {
+  const opt = document.createElement("option");
+  opt.value = key;
+  opt.textContent = key;
+  opt.onmouseover = () => desc.textContent = CELL_TYPES[key].desc;
+  select.appendChild(opt);
+}
+
+/* =========================
+   SIMULATION GRID
+========================= */
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const N = 120;
+const cellSize = canvas.width / N;
+
+let grid = Array.from({length:N},()=>Array(N).fill(0));
+let next = Array.from({length:N},()=>Array(N).fill(0));
+let cells = [];
+
+/* =========================
+   ADD CELLS ON CLICK
+========================= */
+canvas.onclick = e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left)/cellSize);
+  const y = Math.floor((e.clientY - rect.top)/cellSize);
+
+  const chosen = Array.from(select.selectedOptions).map(o=>o.value);
+
+  chosen.forEach(type => {
+    cells.push({x,y,type,timer:0});
+  });
+};
+
+/* =========================
+   REACTION DIFFUSION
+========================= */
+function step(){
+  const diff = parseFloat(document.getElementById("diff").value);
+  const decay = parseFloat(document.getElementById("decay").value);
+
+  for(let i=1;i<N-1;i++){
+    for(let j=1;j<N-1;j++){
+      const lap = grid[i-1][j]+grid[i+1][j]+grid[i][j-1]+grid[i][j+1]-4*grid[i][j];
+      next[i][j] = grid[i][j] + diff*lap - decay*grid[i][j];
+    }
+  }
+
+  cells.forEach(c=>{
+    const def = CELL_TYPES[c.type];
+    if(def.burst){
+      if(c.timer < 25) next[c.x][c.y] += def.sec;
+      c.timer++;
+    } else {
+      next[c.x][c.y] += def.sec;
+    }
+  });
+
+  [grid,next] = [next,grid];
+}
+
+/* =========================
+   DRAW
+========================= */
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for(let i=0;i<N;i++){
+    for(let j=0;j<N;j++){
+      const v = Math.min(grid[i][j],1);
+      if(v>0){
+        ctx.fillStyle = `rgba(0,150,255,${v})`;
+        ctx.fillRect(i*cellSize,j*cellSize,cellSize,cellSize);
+      }
+    }
+  }
+
+  cells.forEach(c=>{
+    ctx.fillStyle = CELL_TYPES[c.type].color;
+    ctx.beginPath();
+    ctx.arc(c.x*cellSize+cellSize/2,c.y*cellSize+cellSize/2,cellSize/2,0,Math.PI*2);
+    ctx.fill();
+  });
+}
+
+/* =========================
+   LOOP
+========================= */
+function loop(){
+  step();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
