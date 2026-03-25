@@ -2,78 +2,72 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Multicellular Reaction–Diffusion Simulator</title>
+<title>Multicellular Disease Simulation Platform</title>
 
 <style>
-body {
-  margin: 0;
-  background: #111;
-  color: white;
-  font-family: Arial;
-}
-
-#container {
-  display: flex;
-}
-
-canvas {
-  border: 1px solid #444;
-}
-
-#panel {
-  width: 260px;
-  padding: 10px;
-  background: #1b1b1b;
-}
-
-select {
-  width: 100%;
-  height: 200px;
-}
-
-button {
-  margin-top: 5px;
-  width: 100%;
-}
-
-#desc {
-  font-size: 12px;
-  margin-top: 10px;
-  min-height: 40px;
-}
+body { margin:0; background:#111; color:white; font-family:Arial; }
+#container { display:flex; }
+canvas { border:1px solid #444; }
+#panel { width:280px; padding:10px; background:#1b1b1b; }
+select, button, input { width:100%; margin-top:5px; }
+#desc { font-size:12px; min-height:40px; }
 </style>
 </head>
-
 <body>
+
 <div id="container">
-  <canvas id="canvas" width="700" height="700"></canvas>
+<canvas id="canvas" width="720" height="720"></canvas>
 
-  <div id="panel">
-    <h3>Cell Types</h3>
-    <select id="cellType" multiple></select>
-    <div id="desc">Hover to see description</div>
+<div id="panel">
+<h3>Cell Types</h3>
+<select id="cellType" multiple size="10"></select>
+<div id="desc">Hover over a cell to see description</div>
 
-    <h3>Simulation Controls</h3>
-    <button id="pauseBtn">Pause</button>
-    <button id="resetBtn">Reset</button>
+<h3>Physics</h3>
+<label>Diffusion <input id="diff" type="range" min="0.01" max="0.2" step="0.005" value="0.08"></label>
+<label>Decay <input id="decay" type="range" min="0.0005" max="0.01" step="0.0005" value="0.002"></label>
 
-    <p style="font-size:12px;">
-      Space = Pause/Resume<br>
-      R = Reset
-    </p>
-  </div>
+<h3>Presets</h3>
+<select id="preset">
+<option value="">-- None --</option>
+<option value="healthy">Healthy Brain</option>
+<option value="inflam">Neuroinflammation</option>
+<option value="tumor">Glioblastoma Tumor</option>
+<option value="regen">Regenerative Therapy</option>
+</select>
+
+<button id="pauseBtn">Pause</button>
+<button id="resetBtn">Reset</button>
+
+<p style="font-size:11px;">Space = Pause | R = Reset</p>
+</div>
 </div>
 
 <script>
 /* =========================
-   CELL DEFINITIONS
+   20 CELL TYPES
 ========================= */
 const CELL_TYPES = {
- neuron: {color:"#FFD700", signal:"#00FFFF", sec:0.04, burst:true, desc:"Neuron – releases neurotransmitters in bursts"},
- astrocyte: {color:"#FF66CC", signal:"#00FFAA", sec:0.02, burst:false, desc:"Astrocyte – maintains extracellular homeostasis"},
- microglia: {color:"#FF8C00", signal:"#FF0000", sec:0.06, burst:true, desc:"Microglia – inflammatory cytokine release"},
- glioblastoma: {color:"#990000", signal:"#FF5555", sec:0.08, burst:false, desc:"Glioblastoma – continuous tumor signaling"},
- stem: {color:"#00FFFF", signal:"#00FF00", sec:0.03, burst:false, desc:"Stem cell – trophic factor secretion"}
+ neuron:{color:"#FFD700",signal:"neuro",sec:0.05,burst:true,desc:"Neuron – excitatory signaling"},
+ astrocyte:{color:"#FF66CC",signal:"growth",sec:0.02,burst:false,desc:"Astrocyte – metabolic and trophic support"},
+ microglia:{color:"#FF8C00",signal:"cyto",sec:0.06,burst:true,desc:"Microglia – CNS immune surveillance"},
+ oligodendrocyte:{color:"#99CCFF",signal:"growth",sec:0.01,burst:false,desc:"Oligodendrocyte – myelination"},
+ endothelial:{color:"#00CC66",signal:"growth",sec:0.02,burst:false,desc:"Endothelial – blood–brain barrier"},
+ pericyte:{color:"#66FF99",signal:"growth",sec:0.02,burst:false,desc:"Pericyte – vascular stabilization"},
+ fibroblast:{color:"#CCCCCC",signal:"growth",sec:0.015,burst:false,desc:"Fibroblast – ECM production"},
+ mesenchymal:{color:"#33FFFF",signal:"growth",sec:0.04,burst:false,desc:"Mesenchymal stem cell – regenerative signaling"},
+ neural_stem:{color:"#00FFFF",signal:"growth",sec:0.03,burst:false,desc:"Neural stem cell – neurogenesis"},
+ t_cell:{color:"#FF3333",signal:"cyto",sec:0.07,burst:true,desc:"T cell – adaptive immune signaling"},
+ b_cell:{color:"#FF6666",signal:"cyto",sec:0.05,burst:true,desc:"B cell – antibody mediated immunity"},
+ dendritic:{color:"#FFAA00",signal:"cyto",sec:0.06,burst:true,desc:"Dendritic – antigen presentation"},
+ macrophage:{color:"#CC5500",signal:"cyto",sec:0.08,burst:true,desc:"Macrophage – inflammatory cytokines"},
+ glioblastoma:{color:"#990000",signal:"cyto",sec:0.09,burst:false,desc:"Glioblastoma – aggressive tumor signaling"},
+ cancer_stem:{color:"#660000",signal:"cyto",sec:0.1,burst:false,desc:"Cancer stem cell – therapy resistant"},
+ epithelial:{color:"#9999FF",signal:"growth",sec:0.01,burst:false,desc:"Epithelial barrier cell"},
+ ipsc:{color:"#66FFFF",signal:"growth",sec:0.03,burst:false,desc:"Induced pluripotent stem cell"},
+ organoid:{color:"#33CCFF",signal:"growth",sec:0.03,burst:false,desc:"Organoid progenitor"},
+ cardiomyocyte:{color:"#FF99CC",signal:"neuro",sec:0.02,burst:true,desc:"Cardiomyocyte – mechano signaling"},
+ chondrocyte:{color:"#66CCFF",signal:"growth",sec:0.01,burst:false,desc:"Chondrocyte – cartilage matrix"}
 };
 
 /* =========================
@@ -81,148 +75,153 @@ const CELL_TYPES = {
 ========================= */
 const select = document.getElementById("cellType");
 const desc = document.getElementById("desc");
-
-for (let key in CELL_TYPES) {
-  const opt = document.createElement("option");
-  opt.value = key;
-  opt.textContent = key;
-  opt.onmouseover = () => desc.textContent = CELL_TYPES[key].desc;
-  select.appendChild(opt);
+for(let k in CELL_TYPES){
+ const o=document.createElement("option");
+ o.value=k;
+ o.textContent=k;
+ o.onmouseover=()=>desc.textContent=CELL_TYPES[k].desc;
+ select.appendChild(o);
 }
 
 /* =========================
-   GRID SETUP
+   SIMULATION SETUP
 ========================= */
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+const N=140;
+const S=canvas.width/N;
 
-const N = 120;
-const cellSize = canvas.width / N;
-
-let fields = {
-  neurotransmitter: Array.from({length:N},()=>Array(N).fill(0)),
-  cytokine: Array.from({length:N},()=>Array(N).fill(0)),
-  growth: Array.from({length:N},()=>Array(N).fill(0))
+let fields={
+ neuro:Array.from({length:N},()=>Array(N).fill(0)),
+ cyto:Array.from({length:N},()=>Array(N).fill(0)),
+ growth:Array.from({length:N},()=>Array(N).fill(0))
 };
 
-let nextFields = JSON.parse(JSON.stringify(fields));
-let cells = [];
-let running = true;
+let next=JSON.parse(JSON.stringify(fields));
+let cells=[];
+let running=true;
 
 /* =========================
    ADD CELLS
 ========================= */
-canvas.onclick = e => {
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.floor((e.clientX - rect.left)/cellSize);
-  const y = Math.floor((e.clientY - rect.top)/cellSize);
-
-  const chosen = Array.from(select.selectedOptions).map(o=>o.value);
-
-  chosen.forEach(type => {
-    cells.push({x,y,type,timer:0});
-  });
+canvas.onclick=e=>{
+ const r=canvas.getBoundingClientRect();
+ const x=Math.floor((e.clientX-r.left)/S);
+ const y=Math.floor((e.clientY-r.top)/S);
+ Array.from(select.selectedOptions).forEach(o=>{
+   cells.push({x,y,type:o.value,t:0});
+ });
 };
 
 /* =========================
-   DIFFUSION STEP
+   DIFFUSION
 ========================= */
-function diffuse(field, next, diff, decay){
-  for(let i=1;i<N-1;i++){
-    for(let j=1;j<N-1;j++){
-      const lap = field[i-1][j]+field[i+1][j]+field[i][j-1]+field[i][j+1]-4*field[i][j];
-      next[i][j] = field[i][j] + diff*lap - decay*field[i][j];
-    }
+function diffuse(f,n,diff,dec){
+ for(let i=1;i<N-1;i++){
+  for(let j=1;j<N-1;j++){
+   const lap=f[i-1][j]+f[i+1][j]+f[i][j-1]+f[i][j+1]-4*f[i][j];
+   n[i][j]=f[i][j]+diff*lap-dec*f[i][j];
   }
+ }
 }
 
 /* =========================
-   SIMULATION STEP
+   STEP
 ========================= */
 function step(){
-  diffuse(fields.neurotransmitter, nextFields.neurotransmitter, 0.08, 0.002);
-  diffuse(fields.cytokine, nextFields.cytokine, 0.05, 0.001);
-  diffuse(fields.growth, nextFields.growth, 0.03, 0.0005);
+ const diff=parseFloat(diffSlider.value);
+ const dec=parseFloat(decaySlider.value);
 
-  cells.forEach(c=>{
-    const def = CELL_TYPES[c.type];
+ diffuse(fields.neuro,next.neuro,diff,dec);
+ diffuse(fields.cyto,next.cyto,diff*0.7,dec*0.5);
+ diffuse(fields.growth,next.growth,diff*0.5,dec*0.3);
 
-    let field;
-    if(c.type==="neuron") field = nextFields.neurotransmitter;
-    else if(c.type==="microglia" || c.type==="glioblastoma") field = nextFields.cytokine;
-    else field = nextFields.growth;
+ cells.forEach(c=>{
+   const def=CELL_TYPES[c.type];
+   const field=next[def.signal];
+   if(def.burst){
+     if(c.t<40) field[c.x][c.y]+=def.sec;
+     c.t++;
+   } else {
+     field[c.x][c.y]+=def.sec;
+   }
+ });
 
-    if(def.burst){
-      if(c.timer < 40) field[c.x][c.y] += def.sec;
-      c.timer++;
-    } else {
-      field[c.x][c.y] += def.sec;
-    }
-  });
-
-  fields = JSON.parse(JSON.stringify(nextFields));
+ fields=JSON.parse(JSON.stringify(next));
 }
 
 /* =========================
    DRAW
 ========================= */
 function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  for(let i=0;i<N;i++){
-    for(let j=0;j<N;j++){
-      const n = fields.neurotransmitter[i][j];
-      const c = fields.cytokine[i][j];
-      const g = fields.growth[i][j];
-
-      if(n>0) {
-        ctx.fillStyle = `rgba(0,255,255,${Math.min(n,1)})`;
-        ctx.fillRect(i*cellSize,j*cellSize,cellSize,cellSize);
-      }
-      if(c>0) {
-        ctx.fillStyle = `rgba(255,0,0,${Math.min(c,1)})`;
-        ctx.fillRect(i*cellSize,j*cellSize,cellSize,cellSize);
-      }
-      if(g>0) {
-        ctx.fillStyle = `rgba(0,255,0,${Math.min(g,1)})`;
-        ctx.fillRect(i*cellSize,j*cellSize,cellSize,cellSize);
-      }
-    }
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ for(let i=0;i<N;i++){
+  for(let j=0;j<N;j++){
+   const n=fields.neuro[i][j];
+   const c=fields.cyto[i][j];
+   const g=fields.growth[i][j];
+   if(n>0){ctx.fillStyle=`rgba(0,255,255,${Math.min(n,1)})`;ctx.fillRect(i*S,j*S,S,S);}
+   if(c>0){ctx.fillStyle=`rgba(255,0,0,${Math.min(c,1)})`;ctx.fillRect(i*S,j*S,S,S);}
+   if(g>0){ctx.fillStyle=`rgba(0,255,0,${Math.min(g,1)})`;ctx.fillRect(i*S,j*S,S,S);}
   }
-
-  cells.forEach(c=>{
-    ctx.fillStyle = CELL_TYPES[c.type].color;
-    ctx.beginPath();
-    ctx.arc(c.x*cellSize+cellSize/2,c.y*cellSize+cellSize/2,cellSize/2,0,Math.PI*2);
-    ctx.fill();
-  });
+ }
+ cells.forEach(c=>{
+   ctx.fillStyle=CELL_TYPES[c.type].color;
+   ctx.beginPath();
+   ctx.arc(c.x*S+S/2,c.y*S+S/2,S/2,0,Math.PI*2);
+   ctx.fill();
+ });
 }
+
+/* =========================
+   PRESETS
+========================= */
+document.getElementById("preset").onchange=e=>{
+ cells=[];
+ if(e.target.value==="healthy"){
+   cells.push({x:50,y:50,type:"neuron",t:0});
+   cells.push({x:60,y:55,type:"astrocyte",t:0});
+ }
+ if(e.target.value==="inflam"){
+   cells.push({x:70,y:70,type:"microglia",t:0});
+   cells.push({x:75,y:72,type:"t_cell",t:0});
+ }
+ if(e.target.value==="tumor"){
+   cells.push({x:60,y:60,type:"glioblastoma",t:0});
+   cells.push({x:62,y:62,type:"cancer_stem",t:0});
+ }
+ if(e.target.value==="regen"){
+   cells.push({x:60,y:60,type:"mesenchymal",t:0});
+   cells.push({x:62,y:58,type:"neural_stem",t:0});
+ }
+};
 
 /* =========================
    CONTROLS
 ========================= */
-document.getElementById("pauseBtn").onclick = () => running = !running;
-document.getElementById("resetBtn").onclick = () => {
-  fields = {
-    neurotransmitter: Array.from({length:N},()=>Array(N).fill(0)),
-    cytokine: Array.from({length:N},()=>Array(N).fill(0)),
-    growth: Array.from({length:N},()=>Array(N).fill(0))
-  };
-  cells = [];
+const diffSlider=document.getElementById("diff");
+const decaySlider=document.getElementById("decay");
+
+document.getElementById("pauseBtn").onclick=()=>running=!running;
+document.getElementById("resetBtn").onclick=()=>{
+ fields.neuro.forEach(r=>r.fill(0));
+ fields.cyto.forEach(r=>r.fill(0));
+ fields.growth.forEach(r=>r.fill(0));
+ cells=[];
 };
 
-document.onkeydown = e => {
-  if(e.code === "Space") running = !running;
-  if(e.key === "r") document.getElementById("resetBtn").click();
+document.onkeydown=e=>{
+ if(e.code==="Space") running=!running;
+ if(e.key==="r") document.getElementById("resetBtn").click();
 };
 
 /* =========================
    LOOP
 ========================= */
 function loop(){
-  if(running) step();
-  draw();
-  requestAnimationFrame(loop);
+ if(running) step();
+ draw();
+ requestAnimationFrame(loop);
 }
 loop();
 </script>
