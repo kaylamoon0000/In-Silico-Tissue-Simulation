@@ -107,19 +107,26 @@ let cells=[];
 let running=true;
 
 /* =========================
-ADD CELLS – FIXED PLACEMENT WITH SCROLL CORRECTION
+ADD CELLS – PERFECT PLACEMENT
 ========================= */
-canvas.onclick = e => {
+canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
-  const xMouse = e.pageX - rect.left - window.scrollX;
-  const yMouse = e.pageY - rect.top - window.scrollY;
+  const style = getComputedStyle(canvas);
+  const borderLeft = parseFloat(style.borderLeftWidth);
+  const borderTop = parseFloat(style.borderTopWidth);
+  const paddingLeft = parseFloat(style.paddingLeft);
+  const paddingTop = parseFloat(style.paddingTop);
+
+  const xMouse = e.clientX - rect.left - borderLeft - paddingLeft;
+  const yMouse = e.clientY - rect.top - borderTop - paddingTop;
+
   const x = Math.floor(xMouse / S);
   const y = Math.floor(yMouse / S);
 
   Array.from(select.selectedOptions).forEach(o => {
     cells.push({ x: x, y: y, type: o.value, t: 0 });
   });
-};
+});
 
 /* =========================
 DIFFUSION
