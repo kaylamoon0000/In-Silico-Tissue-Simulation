@@ -107,18 +107,15 @@ let cells=[];
 let running=true;
 
 /* =========================
-ADD CELLS – PERFECT PLACEMENT
+ADD CELLS – FINAL FIXED PLACEMENT
 ========================= */
 canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
-  const style = getComputedStyle(canvas);
-  const borderLeft = parseFloat(style.borderLeftWidth);
-  const borderTop = parseFloat(style.borderTopWidth);
-  const paddingLeft = parseFloat(style.paddingLeft);
-  const paddingTop = parseFloat(style.paddingTop);
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
 
-  const xMouse = e.clientX - rect.left - borderLeft - paddingLeft;
-  const yMouse = e.clientY - rect.top - borderTop - paddingTop;
+  const xMouse = (e.clientX - rect.left) * scaleX;
+  const yMouse = (e.clientY - rect.top) * scaleY;
 
   const x = Math.floor(xMouse / S);
   const y = Math.floor(yMouse / S);
@@ -284,3 +281,4 @@ loop();
 </script>
 </body>
 </html>
+
