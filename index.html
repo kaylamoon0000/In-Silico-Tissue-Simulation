@@ -107,15 +107,18 @@ let cells=[];
 let running=true;
 
 /* =========================
-ADD CELLS
+ADD CELLS – FIXED PLACEMENT
 ========================= */
-canvas.onclick=e=>{
- const r=canvas.getBoundingClientRect();
- const x=Math.floor((e.clientX-r.left)/S);
- const y=Math.floor((e.clientY-r.top)/S);
- Array.from(select.selectedOptions).forEach(o=>{
-   cells.push({x,y,type:o.value,t:0});
- });
+canvas.onclick = e => {
+  const rect = canvas.getBoundingClientRect();
+  const xMouse = e.clientX - rect.left;
+  const yMouse = e.clientY - rect.top;
+  const x = Math.floor(xMouse / S);
+  const y = Math.floor(yMouse / S);
+
+  Array.from(select.selectedOptions).forEach(o => {
+    cells.push({ x: x, y: y, type: o.value, t: 0 });
+  });
 };
 
 /* =========================
@@ -136,7 +139,6 @@ CELL MOVEMENT (gradient-based)
 function moveCells(){
  cells.forEach(c=>{
    const def = CELL_TYPES[c.type];
-   // immune cells or tumor cells move toward highest signal
    if(["microglia","t_cell","b_cell","dendritic","macrophage","glioblastoma","cancer_stem"].includes(c.type)){
      let maxSignal=0, dx=0, dy=0;
      for(let i=-1;i<=1;i++){
@@ -275,3 +277,4 @@ loop();
 </script>
 </body>
 </html>
+
