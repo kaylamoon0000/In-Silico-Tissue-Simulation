@@ -107,15 +107,16 @@ let cells=[];
 let running=true;
 
 /* =========================
-ADD CELLS – FINAL FIXED PLACEMENT
+ADD CELLS – FINAL SCROLL-FIXED PLACEMENT
 ========================= */
 canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
 
-  const xMouse = (e.clientX - rect.left) * scaleX;
-  const yMouse = (e.clientY - rect.top) * scaleY;
+  // Use pageX/Y and scroll to fully account for page scrolling
+  const xMouse = (e.pageX - rect.left - window.scrollX) * scaleX;
+  const yMouse = (e.pageY - rect.top - window.scrollY) * scaleY;
 
   const x = Math.floor(xMouse / S);
   const y = Math.floor(yMouse / S);
@@ -281,4 +282,3 @@ loop();
 </script>
 </body>
 </html>
-
